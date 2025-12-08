@@ -108,8 +108,8 @@ int main(int argc, char *argv[]){
 				  printf("Message reçu : %s (%d octets)\n\n", messageRecu, lus);
 		}
 
-		if(strcmp(messageRecu, "heure") == 0)
-			lire_heure(reponse);
+		if(test_input == -1)
+			printf("Vous avez perdu une vie");
 		else if(strcmp(messageRecu, "date") == 0)
 			lire_date(reponse);
 		else
