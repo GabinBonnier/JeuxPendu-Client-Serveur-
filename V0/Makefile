@@ -1,4 +1,4 @@
-all: client serveur
+all: client serveur game protocol
 
 client: client.c
 	gcc -o client client.c
