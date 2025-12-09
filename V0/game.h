@@ -20,6 +20,6 @@ void init_game(Game *g);
 void test_input_game(const Game *g, const char *input, int tab_occ[50]);
 
 /* Show the life */
-void affichage(const Game *g);
+void affichage(const int nb_life);
 
 #endif

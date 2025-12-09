@@ -7,6 +7,8 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
+#include "game.h"
+
 int main(int argc, char *argv[]){
 	int descripteurSocket;
 	struct sockaddr_in sockaddrDistant;
@@ -18,6 +20,9 @@ int main(int argc, char *argv[]){
 
 	char ip_dest[16];
 	int port_dest;
+
+	int vies;
+	char motActuel[256];
 
 	if(argc < 3){
 		printf("USAGE : %s ip port\n", argv[0]);
@@ -86,15 +91,34 @@ int main(int argc, char *argv[]){
 			break;
 		}
 
-		if(strcmp(reponse, "notfound") == 0){
-			printf("Lettre absente !\n");
-		} else if(strcmp(reponse, "win") == 0){
+		if (sscanf(reponse, "notfound %d", &vies) == 1) {
+			printf("Lettre absente ! Il vous reste %d vies.\n", vies);
+			affichage(vies);
+		}
+
+		else if (sscanf(reponse, "lost %s %d", motActuel, &vies) <= 1) {
+			printf("Vous n'avez plus de vies ! Le mot était : %s\n", motActuel);
+			break;
+		}
+
+		else if (strcmp(reponse, "win") == 0) {
 			printf("Félicitations ! Vous avez trouvé le mot : %s\n", buffer);
 			break;
-		} else {
-			strcpy(motAffiche, reponse);
-			printf("Mot actuel : %s\n", motAffiche);
 		}
+
+		else {
+			// Cas "mot vies"
+			// Exemple reçu : ab__d 4
+			char motTemp[256];
+			if (sscanf(reponse, "%s %d", motTemp, &vies) == 2) {
+				strcpy(motAffiche, motTemp);
+				printf("Mot actuel : %s | Vies restantes : %d\n", motAffiche, vies);
+				affichage(vies);
+			} else {
+				printf("Message inconnu : %s\n", reponse);
+			}
+		}
+
 	}
 
 	close(descripteurSocket);

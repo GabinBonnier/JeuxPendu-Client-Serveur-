@@ -10,8 +10,7 @@
 #define PORT 5003
 #define LG_MESSAGE 256
 
-#include "game.c"
-#include "protocole.h"
+#include "game.h"
 
 int main(){
     int socketEcoute;
@@ -33,14 +32,9 @@ int main(){
     }
     printf("Socket créée ! (%d)\n", socketEcoute);
 
-    // === PERMET LA RÉUTILISATION IMMÉDIATE DU PORT ===
     int opt = 1;
-    if(setsockopt(socketEcoute, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0){
-        perror("setsockopt");
-        exit(-1);
-    }
+    setsockopt(socketEcoute, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
 
-    // Prépare l’adresse locale
     longueurAdresse = sizeof(pointDeRencontreLocal);
     memset(&pointDeRencontreLocal, 0x00, longueurAdresse);
     pointDeRencontreLocal.sin_family = PF_INET;
@@ -51,15 +45,14 @@ int main(){
         perror("bind");
         exit(-2);
     }
-    printf("Socket attachée avec succès !\n");
 
     if(listen(socketEcoute, 1) < 0){
         perror("listen");
         exit(-3);
     }
+
     printf("Serveur en écoute sur le port %d...\n", PORT);
 
-    // Une seule partie → une seule connexion
     socketDialogue = accept(socketEcoute, (struct sockaddr *)&pointDeRencontreDistant, &longueurAdresse);
     if (socketDialogue < 0) {
         perror("accept");
@@ -74,7 +67,6 @@ int main(){
 
     printf("Mot choisi : %s\n", word_global);
 
-    // Envoi "start x"
     sprintf(reponse, "start %ld", strlen(word_global));
     send(socketDialogue, reponse, strlen(reponse)+1, 0);
 
@@ -98,21 +90,40 @@ int main(){
         test_input_game(&game, messageRecu, tab);
 
         if(tab[0] == -1){
-            sprintf(reponse, "notfound");
-        } else if(tab[0] == 100){
+            game.nb_life--;
+
+            // 🔥 SI PLUS DE VIES → envoyer "lost <mot>"
+            if(game.nb_life <= 0){
+                sprintf(reponse, "lost %s", word_global);
+                send(socketDialogue, reponse, strlen(reponse)+1, 0);
+                printf("Joueur perdant, plus de vies.\n");
+                break;
+            }
+
+            sprintf(reponse, "notfound %d", game.nb_life);
+        }
+        else if(tab[0] == 100){
             sprintf(reponse, "win");
-        } else {
+        }
+        else {
             for(int i=1; i<=tab[0]; i++){
                 lettresTrouvees[tab[i]] = word_global[tab[i]];
             }
             lettresRestantes -= tab[0];
-            sprintf(reponse, "%s", lettresTrouvees);
+            sprintf(reponse, "%s %d", lettresTrouvees, game.nb_life);
         }
 
         send(socketDialogue, reponse, strlen(reponse)+1, 0);
 
-        if(strcmp(reponse, "win") == 0 || lettresRestantes == 0){
-            printf("Partie terminée, arrêt du serveur.\n");
+        // 🎉 Gagné ?
+        if(strcmp(reponse, "win") == 0){
+            printf("Joueur gagnant !\n");
+            break;
+        }
+
+        // 🎯 Toutes les lettres trouvées ?
+        if(lettresRestantes == 0){
+            printf("Mot trouvé, arrêt du serveur.\n");
             break;
         }
     }

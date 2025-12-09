@@ -31,8 +31,8 @@ void init_game(Game *g) {
     strcpy(g->secret_word, word_possible[nb_choose]);
     g->nb_letters = strlen(g->secret_word);
 
-    //Set the nb_vie
-    g->nb_vie = 6;
+    //Set the nb_life
+    g->nb_life = 6;
 }
 
 
@@ -74,22 +74,11 @@ void test_input_game(const Game *g, const char *input, int tab_occ[50]) {
         tab_occ[0] = -1;
 }
 
-#include <stdio.h>
-#include <string.h>
-
-// Structure Game (supposée)
-typedef struct {
-    int vies_restantes;
-    char mot_a_deviner[50];
-    char lettres_trouvees[50];
-    char lettres_proposees[26];
-    int nb_lettres_proposees;
-} Game;
 
 /* Show the life */
-void affichage(const Game *g) {    
+void affichage(const int nb_life) {    
 
-    switch(g->vies_restantes) {
+    switch(nb_life) {
         case 6:
             printf("  +---+\n");
             printf("  |   |\n");

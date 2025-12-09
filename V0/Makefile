@@ -1,16 +1,13 @@
-all: client serveur game protocol
+all: client server
 
-client: client.c
-	gcc -o client client.c
+client: client.c game.o
+	gcc -o client client.c game.o
 
-serveur: serveur.c
-	gcc -o serveur serveur.c
+server: server.c game.o
+	gcc -o server server.c game.o
 
-game: game.c
-	gcc -o game game.c
-
-protocol: protocol.c
-	gcc -o protocol protocol.c
+game.o: game.c game.h
+	gcc -c game.c
 
 clean:
-	rm -f client serveur
+	rm -f *.o client server
