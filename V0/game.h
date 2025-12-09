@@ -6,16 +6,20 @@
 #include <string.h>
 #include <time.h>
 
-/* Structure contenant l'état du jeu */
+/* Struct with the informations of a game */
 typedef struct {
     char secret_word[50];
     int nb_letters;
+    int nb_life;
 } Game;
 
-/* Initialise une partie*/
+/* Set a game */
 void init_game(Game *g);
 
-/* Teste une entrée (lettre ou mot)*/
+/* Test the intput of the user */
 void test_input_game(const Game *g, const char *input, int tab_occ[50]);
+
+/* Show the life */
+void affichage(const Game *g);
 
 #endif
