@@ -69,7 +69,7 @@ int main(int argc, char *argv[]){
 	printf("Mot à deviner : %s\n", motAffiche);
 
 	while(1){
-		printf("\nEntrez une lettre : ");
+		printf("\nEntrez une lettre/mot : ");
 		fgets(buffer, sizeof(buffer), stdin);
 		buffer[strcspn(buffer, "\n")] = '\0';
 
@@ -89,7 +89,7 @@ int main(int argc, char *argv[]){
 		if(strcmp(reponse, "notfound") == 0){
 			printf("Lettre absente !\n");
 		} else if(strcmp(reponse, "win") == 0){
-			printf("Félicitations ! Vous avez trouvé le mot : %s\n", motAffiche);
+			printf("Félicitations ! Vous avez trouvé le mot : %s\n", buffer);
 			break;
 		} else {
 			strcpy(motAffiche, reponse);
