@@ -10,6 +10,9 @@
 #define PORT 5001
 #define LG_MESSAGE 256
 
+#include "game.c"
+#include "protocole.h"
+
 void lire_heure(char* heure){
 FILE *fpipe;
 fpipe = popen("date '+%X'","r");
@@ -108,12 +111,15 @@ int main(int argc, char *argv[]){
 				  printf("Message reçu : %s (%d octets)\n\n", messageRecu, lus);
 		}
 
-		if(test_input == -1)
-			printf("Vous avez perdu une vie");
-		else if(strcmp(messageRecu, "date") == 0)
-			lire_date(reponse);
-		else
-			strcpy(reponse, "Commande inconnue\n");
+		
+
+	    char* word = def_word_secret();
+	    printf("%s\n",word);
+	    int tab[50];
+		char *saisiJeux = argv[1];
+	    test_input(word,saisiJeux,tab);
+	    printf("%d\n",tab[0]);
+
 
 		send(socketDialogue, reponse, strlen(reponse)+1, 0);
 
@@ -123,4 +129,5 @@ int main(int argc, char *argv[]){
 	// On ferme la ressource avant de quitter
    	close(socketEcoute);
 	return 0; 
+
 }

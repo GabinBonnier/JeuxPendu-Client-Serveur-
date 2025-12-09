@@ -58,13 +58,3 @@ void test_input(char *secret_word, const char *input, int tab_occ[50]) {
             tab_occ[0] = -1;
     }
 }
-
-
-int main(){
-    char* word = def_word_secret();
-    printf("%s\n",word);
-    int tab[50];
-    test_input(word,"l",tab);
-    printf("%d\n",tab[0]);
-    return 0;
-}
