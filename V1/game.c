@@ -7,8 +7,28 @@
 /* Initialise une partie */
 void init_game(Game *g) {
 
-    // Initalize secret word
-    strcpy(g->secret_word, "mot");
+    // Tab of possible word
+    static const char* word_possible[] = {
+        "mot",
+        "truc",
+        "ligne",
+        "casque",
+        "trompette"
+    };
+    
+    //Reset the aleatory
+    static int seeded = 0;
+    if (!seeded) {
+        srand(time(NULL));
+        seeded = 1;
+    }
+
+    //Aleatory
+    int count = sizeof(word_possible) / sizeof(word_possible[0]);
+    int nb_choose = rand() % count;
+
+    //Set the word and the len
+    strcpy(g->secret_word, word_possible[nb_choose]);
     g->nb_letters = strlen(g->secret_word);
 
     //Set the nb_life

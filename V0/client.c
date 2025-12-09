@@ -52,6 +52,7 @@ int main(int argc, char *argv[]){
 		exit(-2);
 	}
 	printf("Connexion au serveur %s:%d réussie !\n", ip_dest, port_dest);
+	
 
 	nb = recv(descripteurSocket, reponse, sizeof(reponse), 0);
 	if(nb <= 0){
@@ -66,6 +67,7 @@ int main(int argc, char *argv[]){
 		close(descripteurSocket);
 		return 0;
 	}
+	printf("Le mot comporte %d lettres. \n", tailleMot);
 
 	char motAffiche[256];
 	for(int i=0; i<tailleMot; i++) motAffiche[i] = '_';
@@ -96,10 +98,11 @@ int main(int argc, char *argv[]){
 			affichage(vies);
 		}
 
-		else if (sscanf(reponse, "lost %s %d", motActuel, &vies) <= 1) {
+		else if (sscanf(reponse, "lost %s", motActuel) == 1) {
 			printf("Vous n'avez plus de vies ! Le mot était : %s\n", motActuel);
 			break;
 		}
+
 
 		else if (strcmp(reponse, "win") == 0) {
 			printf("Félicitations ! Vous avez trouvé le mot : %s\n", buffer);
