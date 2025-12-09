@@ -7,7 +7,7 @@
 char* def_word_secret(){
 
     //Tab of possibilities words
-    const char* word_possible[] = {
+    static const char* word_possible[] = {
         "mot",
         "truc",
         "ligne",
@@ -37,6 +37,7 @@ void test_input(char *secret_word, const char *input, int tab_occ[50]) {
     //If the intput is only 1 -> a letter
     if (len_input == 1) {
         char letter = input[0];
+        count = 1;
 
         //Test if the lettre is in the word
         for (int i = 0; secret_word[i] != '\0'; i++) {
@@ -46,8 +47,13 @@ void test_input(char *secret_word, const char *input, int tab_occ[50]) {
             }
         }
 
-        if (count == 0)
+        //If the count equals to 1, the lettre is not into the word
+        if (count == 1){
             tab_occ[0] = -1;
+        }
+        else {
+            tab_occ[0] = count - 1;
+        }
     }
 
     //Else it's a word
