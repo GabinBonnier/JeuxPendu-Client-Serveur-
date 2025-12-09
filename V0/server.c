@@ -1,11 +1,11 @@
 #include <stdio.h>
-#include <stdlib.h> /* pour exit */
-#include <unistd.h> /* pour read, write, close, sleep */
+#include <stdlib.h>
+#include <unistd.h>
 #include <sys/types.h>
 #include <sys/socket.h>
-#include <string.h> /* pour memset */
-#include <netinet/in.h> /* pour struct sockaddr_in */
-#include <arpa/inet.h> /* pour htons et inet_aton */
+#include <string.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 
 #define PORT 5002
 #define LG_MESSAGE 256
@@ -13,141 +13,110 @@
 #include "game.c"
 #include "protocole.h"
 
-void lire_heure(char* heure){
-FILE *fpipe;
-fpipe = popen("date '+%X'","r");
-if (fpipe == NULL){
-perror("popen" );
-exit(-1);
-}
-fgets(heure, LG_MESSAGE, fpipe);
-pclose(fpipe);
-}
+int main(){
+    int socketEcoute;
+    struct sockaddr_in pointDeRencontreLocal;
+    socklen_t longueurAdresse;
 
-void lire_date(char* date){
-FILE *fpipe;
-fpipe= popen("date '+%A %d %B %Y'","r");
-if (fpipe == NULL){
-perror("popen" );
-exit(-1);
-}
-fgets(date, LG_MESSAGE, fpipe);
-pclose(fpipe);
-}
+    int socketDialogue;
+    struct sockaddr_in pointDeRencontreDistant;
 
-int main(int argc, char *argv[]){
-	int socketEcoute;
+    char messageRecu[LG_MESSAGE];
+    char reponse[LG_MESSAGE];
+    int lus;
 
-	struct sockaddr_in pointDeRencontreLocal;
-	socklen_t longueurAdresse;
+    // Création socket
+    socketEcoute = socket(AF_INET, SOCK_STREAM, 0);
+    if(socketEcoute < 0){
+        perror("socket");
+        exit(-1);
+    }
+    printf("Socket créée avec succès ! (%d)\n", socketEcoute);
 
-	int socketDialogue;
-	struct sockaddr_in pointDeRencontreDistant;
-	char messageRecu[LG_MESSAGE]; /* le message de la couche Application ! */
-	char reponse[LG_MESSAGE]; 
-	int ecrits, lus; /* nb d’octets ecrits et lus */
-	int retour;
+    longueurAdresse = sizeof(pointDeRencontreLocal);
+    memset(&pointDeRencontreLocal, 0x00, longueurAdresse);
+    pointDeRencontreLocal.sin_family = PF_INET;
+    pointDeRencontreLocal.sin_addr.s_addr = htonl(INADDR_ANY);
+    pointDeRencontreLocal.sin_port = htons(PORT);
 
-	// Crée un socket de communication
-	socketEcoute = socket(AF_INET, SOCK_STREAM, 0); 
-	// Teste la valeur renvoyée par l’appel système socket() 
-	if(socketEcoute < 0){
-		perror("socket"); // Affiche le message d’erreur 
-	exit(-1); // On sort en indiquant un code erreur
-	}
-	printf("Socket créée avec succès ! (%d)\n", socketEcoute); // On prépare l’adresse d’attachement locale
-	//setsockopt()
+    if(bind(socketEcoute, (struct sockaddr *)&pointDeRencontreLocal, longueurAdresse) < 0){
+        perror("bind");
+        exit(-2);
+    }
+    printf("Socket attachée avec succès !\n");
 
+    if(listen(socketEcoute, 5) < 0){
+        perror("listen");
+        exit(-3);
+    }
+    printf("Socket placée en écoute passive ...\n");
 
-	// Remplissage de sockaddrDistant (structure sockaddr_in identifiant le point d'écoute local)
-	longueurAdresse = sizeof(pointDeRencontreLocal);
-	// memset sert à faire une copie d'un octet n fois à partir d'une adresse mémoire donnée
-	// ici l'octet 0 est recopié longueurAdresse fois à partir de l'adresse &pointDeRencontreLocal
-	memset(&pointDeRencontreLocal, 0x00, longueurAdresse); pointDeRencontreLocal.sin_family = PF_INET;
-	pointDeRencontreLocal.sin_addr.s_addr = htonl(INADDR_ANY); // attaché à toutes les interfaces locales disponibles
-	pointDeRencontreLocal.sin_port = htons(PORT); // = 5000 ou plus
-	
-	// On demande l’attachement local de la socket
-	if((bind(socketEcoute, (struct sockaddr *)&pointDeRencontreLocal, longueurAdresse)) < 0) {
-		perror("bind");
-		exit(-2); 
-	}
-	printf("Socket attachée avec succès !\n");
+    while(1){
+        printf("Attente d’une demande de connexion (quitter avec Ctrl-C)\n");
 
-	// On fixe la taille de la file d’attente à 5 (pour les demandes de connexion non encore traitées)
-	if(listen(socketEcoute, 5) < 0){
-   		perror("listen");
-   		exit(-3);
-	}
-	printf("Socket placée en écoute passive ...\n");
-	
-	// boucle d’attente de connexion : en théorie, un serveur attend indéfiniment ! 
-	while(1){
-		memset(messageRecu, 'a', LG_MESSAGE*sizeof(char));
-		printf("Attente d’une demande de connexion (quitter avec Ctrl-C)\n\n");
-		
-		// c’est un appel bloquant
-		socketDialogue = accept(socketEcoute, (struct sockaddr *)&pointDeRencontreDistant, &longueurAdresse);
-		if (socketDialogue < 0) {
-   			perror("accept");
-			close(socketDialogue);
-   			close(socketEcoute);
-   			exit(-4);
-		}
+        socketDialogue = accept(socketEcoute, (struct sockaddr *)&pointDeRencontreDistant, &longueurAdresse);
+        if (socketDialogue < 0) {
+            perror("accept");
+            continue;
+        }
 
-		// ================================================================
-		// AJOUT : ENVOYER "start x" AU CLIENT JUSTE APRÈS accept()
-		// ================================================================
-		char *word_init = def_word_secret();   // on choisit le mot
-		printf("Mot choisi : %s\n", word_init);
+        // Mot choisi
+        char *word_init = def_word_secret();
+        static char word_global[50];
+        strcpy(word_global, word_init);
 
-		snprintf(reponse, sizeof(reponse), "start %ld", strlen(word_init));
-		send(socketDialogue, reponse, strlen(reponse)+1, 0);
+        printf("Mot choisi : %s\n", word_global);
 
-		printf("Envoyé au client : %s\n", reponse);
-		// ================================================================
-		// FIN AJOUT
-		// ================================================================
+        // Envoi "start x"
+        sprintf(reponse, "start %ld", strlen(word_global));
+        send(socketDialogue, reponse, strlen(reponse)+1, 0);
+        printf("Envoyé au client : %s\n", reponse);
 
-		// On réception les données du client (cf. protocole)
-		//lus = read(socketDialogue, messageRecu, LG_MESSAGE*sizeof(char)); // ici appel bloquant
-		lus = recv(socketDialogue, messageRecu, LG_MESSAGE*sizeof(char),0); // ici appel bloquant
-		switch(lus) {
-			case -1 : /* une erreur ! */ 
-				  perror("read"); 
-				  close(socketDialogue); 
-				  exit(-5);
-			case 0  : /* la socket est fermée */
-				  fprintf(stderr, "La socket a été fermée par le client !\n\n");
-   				  close(socketDialogue);
-   				  return 0;
-			default:  /* réception de n octets */
-				  printf("Message reçu : %s (%d octets)\n\n", messageRecu, lus);
-		}
+        // Tableau pour suivre lettres trouvées
+        char lettresTrouvees[50];
+        for(int i=0; i<strlen(word_global); i++) lettresTrouvees[i] = '_';
+        lettresTrouvees[strlen(word_global)] = '\0';
 
-		// Ton code existant reste identique
-	    char* word = def_word_secret();
-	    printf("%s\n",word);
-	    int tab[50];
-		char *saisiJeux = argv[1];
-	    test_input(word,saisiJeux,tab);
-	    printf("%d\n",tab[0]);
+        int lettresRestantes = strlen(word_global);
 
-		// ================================================================
-		// AJOUT : éviter d’envoyer du garbage, on construit une réponse simple
-		// ================================================================
-		snprintf(reponse, sizeof(reponse), "ok"); // réponse minimale correcte
-		// ================================================================
-		// FIN AJOUT
-		// ================================================================
+        // ========= BOUCLE DE JEU ==========
+        while(1){
+            memset(messageRecu, 0, LG_MESSAGE);
+            lus = recv(socketDialogue, messageRecu, LG_MESSAGE, 0);
+            if(lus <= 0){
+                printf("Client déconnecté.\n");
+                break;
+            }
 
-		send(socketDialogue, reponse, strlen(reponse)+1, 0);
+            printf("Message reçu : %s (%d octets)\n", messageRecu, lus);
 
-		close(socketDialogue);
+            int tab[50];
+            test_input(word_global, messageRecu, tab);
 
-	}
-	// On ferme la ressource avant de quitter
-   	close(socketEcoute);
-	return 0; 
+            // Mise à jour lettres trouvées
+            if(tab[0] == -1){
+                sprintf(reponse, "notfound");
+            } else if(tab[0] == 100){
+                sprintf(reponse, "win");
+            } else {
+                for(int i=1; i<=tab[0]; i++){
+                    lettresTrouvees[tab[i]] = word_global[tab[i]];
+                }
+                lettresRestantes -= tab[0];
+                sprintf(reponse, "%s", lettresTrouvees);
+            }
 
+            send(socketDialogue, reponse, strlen(reponse)+1, 0);
+            printf("Réponse envoyée : %s\n", reponse);
+
+            if(strcmp(reponse, "win") == 0 || lettresRestantes == 0){
+                break;
+            }
+        }
+
+        close(socketDialogue);
+    }
+
+    close(socketEcoute);
+    return 0;
 }
