@@ -27,8 +27,12 @@ void init_game(Game *g) {
     int count = sizeof(word_possible) / sizeof(word_possible[0]);
     int nb_choose = rand() % count;
 
+    //Set the word and the len
     strcpy(g->secret_word, word_possible[nb_choose]);
     g->nb_letters = strlen(g->secret_word);
+
+    //Set the nb_vie
+    g->nb_vie = 6;
 }
 
 
@@ -68,4 +72,86 @@ void test_input_game(const Game *g, const char *input, int tab_occ[50]) {
         tab_occ[0] = 100;
     else
         tab_occ[0] = -1;
+}
+
+#include <stdio.h>
+#include <string.h>
+
+// Structure Game (supposée)
+typedef struct {
+    int vies_restantes;
+    char mot_a_deviner[50];
+    char lettres_trouvees[50];
+    char lettres_proposees[26];
+    int nb_lettres_proposees;
+} Game;
+
+/* Show the life */
+void affichage(const Game *g) {    
+
+    switch(g->vies_restantes) {
+        case 6:
+            printf("  +---+\n");
+            printf("  |   |\n");
+            printf("      |\n");
+            printf("      |\n");
+            printf("      |\n");
+            printf("      |\n");
+            printf("=========\n");
+            break;
+        case 5:
+            printf("  +---+\n");
+            printf("  |   |\n");
+            printf("  O   |\n");
+            printf("      |\n");
+            printf("      |\n");
+            printf("      |\n");
+            printf("=========\n");
+            break;
+        case 4:
+            printf("  +---+\n");
+            printf("  |   |\n");
+            printf("  O   |\n");
+            printf("  |   |\n");
+            printf("      |\n");
+            printf("      |\n");
+            printf("=========\n");
+            break;
+        case 3:
+            printf("  +---+\n");
+            printf("  |   |\n");
+            printf("  O   |\n");
+            printf(" /|   |\n");
+            printf("      |\n");
+            printf("      |\n");
+            printf("=========\n");
+            break;
+        case 2:
+            printf("  +---+\n");
+            printf("  |   |\n");
+            printf("  O   |\n");
+            printf(" /|\\  |\n");
+            printf("      |\n");
+            printf("      |\n");
+            printf("=========\n");
+            break;
+        case 1:
+            printf("  +---+\n");
+            printf("  |   |\n");
+            printf("  O   |\n");
+            printf(" /|\\  |\n");
+            printf(" /    |\n");
+            printf("      |\n");
+            printf("=========\n");
+            break;
+        case 0:
+            printf("  +---+\n");
+            printf("  |   |\n");
+            printf("  O   |\n");
+            printf(" /|\\  |\n");
+            printf(" / \\  |\n");
+            printf("      |\n");
+            printf("=========\n");
+            break;
+    }
 }
