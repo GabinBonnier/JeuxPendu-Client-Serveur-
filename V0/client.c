@@ -38,7 +38,7 @@ int main(int argc, char *argv[]){
 
 	/* ------------ Remplissage sockaddr_in ------------ */
 	longueurAdresse = sizeof(sockaddrDistant);
-	memset(&sockaddrDistant, 0x00, longueurAdresse);   // <<< tu voulais garder EXACTEMENT ceci
+	memset(&sockaddrDistant, 0x00, longueurAdresse);
 
 	sockaddrDistant.sin_family = AF_INET;
 	sockaddrDistant.sin_port = htons(port_dest);
@@ -54,17 +54,30 @@ int main(int argc, char *argv[]){
 
 
 	/* ===========================================================
-	                 INTERFACE UTILISATEUR
-	      Envoie de lettres en boucle + réception serveur
+	               LECTURE DU MESSAGE "start x"
+	   =========================================================== */
+
+	nb = recv(descripteurSocket, reponse, sizeof(reponse), 0);
+	if(nb <= 0){
+		printf("Le serveur a fermé la connexion.\n");
+		close(descripteurSocket);
+		return 0;
+	}
+	printf("Serveur : %s\n", reponse);
+
+
+	/* ===========================================================
+	                     BOUCLE DE JEU
 	   =========================================================== */
 	while(1){
-		printf("\nEntrez une lettre (ou 'quit' pour quitter) : ");
+		printf("\nEntrez une lettre : ");
 		fgets(buffer, sizeof(buffer), stdin);
 		buffer[strcspn(buffer, "\n")] = '\0';
 
-		if(strcmp(buffer, "quit") == 0){
-			printf("Déconnexion...\n");
-			break;
+		/* --- Modification minimale : une lettre obligatoire --- */
+		if(strlen(buffer) != 1){
+			printf("Veuillez entrer UNE SEULE lettre.\n");
+			continue;
 		}
 
 		/* ----------- Envoi au serveur ----------- */
@@ -92,6 +105,13 @@ int main(int argc, char *argv[]){
 		}
 
 		printf("Réponse du serveur : %s\n", reponse);
+
+		/* --- Arrêt sur fin de partie (win / lose) --- */
+		if(strncmp(reponse, "win", 3) == 0 ||
+		   strncmp(reponse, "lose", 4) == 0){
+			printf("Fin de la partie.\n");
+			break;
+		}
 	}
 
 	close(descripteurSocket);

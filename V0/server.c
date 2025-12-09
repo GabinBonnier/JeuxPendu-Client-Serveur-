@@ -7,7 +7,7 @@
 #include <netinet/in.h> /* pour struct sockaddr_in */
 #include <arpa/inet.h> /* pour htons et inet_aton */
 
-#define PORT 5001
+#define PORT 5002
 #define LG_MESSAGE 256
 
 #include "game.c"
@@ -94,7 +94,21 @@ int main(int argc, char *argv[]){
    			close(socketEcoute);
    			exit(-4);
 		}
-		
+
+		// ================================================================
+		// AJOUT : ENVOYER "start x" AU CLIENT JUSTE APRÈS accept()
+		// ================================================================
+		char *word_init = def_word_secret();   // on choisit le mot
+		printf("Mot choisi : %s\n", word_init);
+
+		snprintf(reponse, sizeof(reponse), "start %ld", strlen(word_init));
+		send(socketDialogue, reponse, strlen(reponse)+1, 0);
+
+		printf("Envoyé au client : %s\n", reponse);
+		// ================================================================
+		// FIN AJOUT
+		// ================================================================
+
 		// On réception les données du client (cf. protocole)
 		//lus = read(socketDialogue, messageRecu, LG_MESSAGE*sizeof(char)); // ici appel bloquant
 		lus = recv(socketDialogue, messageRecu, LG_MESSAGE*sizeof(char),0); // ici appel bloquant
@@ -111,8 +125,7 @@ int main(int argc, char *argv[]){
 				  printf("Message reçu : %s (%d octets)\n\n", messageRecu, lus);
 		}
 
-		
-
+		// Ton code existant reste identique
 	    char* word = def_word_secret();
 	    printf("%s\n",word);
 	    int tab[50];
@@ -120,6 +133,13 @@ int main(int argc, char *argv[]){
 	    test_input(word,saisiJeux,tab);
 	    printf("%d\n",tab[0]);
 
+		// ================================================================
+		// AJOUT : éviter d’envoyer du garbage, on construit une réponse simple
+		// ================================================================
+		snprintf(reponse, sizeof(reponse), "ok"); // réponse minimale correcte
+		// ================================================================
+		// FIN AJOUT
+		// ================================================================
 
 		send(socketDialogue, reponse, strlen(reponse)+1, 0);
 
