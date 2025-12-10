@@ -1,25 +1,16 @@
 #ifndef GAME_H
 #define GAME_H
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <time.h>
+#define MAX_WORD_LEN 50
 
-/* Struct with the informations of a game */
 typedef struct {
-    char secret_word[50];
+    char secret_word[MAX_WORD_LEN];
     int nb_letters;
     int nb_life;
 } Game;
 
-/* Set a game */
-void init_game(Game *g);
-
-/* Test the intput of the user */
+void init_game(Game *g, const char *word);
 void test_input_game(const Game *g, const char *input, int tab_occ[50]);
-
-/* Show the life */
 void affichage(const int nb_life);
 
 #endif
