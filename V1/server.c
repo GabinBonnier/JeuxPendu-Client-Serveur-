@@ -134,7 +134,6 @@ int main() {
             // Changer de tour
             tour = (tour == 1) ? 2 : 1;
         }
-
         close(sock1);
         close(sock2);
         printf("\nPartie terminée, en attente de nouveaux joueurs...\n");
