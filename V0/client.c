@@ -71,7 +71,7 @@ int main(int argc, char *argv[]){
 
 	//Set the len of the word and print it
 	int tailleMot;
-	if(sscanf(reponse, "start %d", &tailleMot) != 1){
+	if(sscanf(reponse, "\nstart %d", &tailleMot) != 1){
 		printf("Protocole invalide.\n");
 		close(descripteurSocket);
 		return 0;
