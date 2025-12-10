@@ -16,7 +16,7 @@ void init_game(Game *g) {
 }
 
 
-// Test the intput of 
+// Test the intput of the user
 void test_input_game(const Game *g, const char *input, int tab_occ[50]) {
 
     const char *secret_word = g->secret_word;
