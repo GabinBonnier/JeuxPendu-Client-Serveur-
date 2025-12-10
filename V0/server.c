@@ -114,7 +114,7 @@ int main() {
             }
             //Win of the client
             else if(tab[0] == 100){
-                sprintf(reponse, "win");
+                sprintf(reponse, "win %s", word_global);
             }
             //Letter is good -> modification of lettres_trouves
             else {
@@ -123,6 +123,7 @@ int main() {
                 }
                 lettresRestantes -= tab[0];
                 sprintf(reponse, "%s %d", lettresTrouvees, game.nb_life);
+                
             }
 
             //Send the result of the letter at the client
@@ -135,10 +136,15 @@ int main() {
             }
 
             //If the all of the letter is found -> win
-            if(lettresRestantes == 0){
+            // si on a gagné, on envoie win et on break SANS renvoyer juste après
+            if (lettresRestantes == 0){
+                sprintf(reponse, "win %s", word_global);
+                send(socketDialogue, reponse, strlen(reponse)+1, 0);
                 printf("Mot trouvé par le joueur.\n");
-                break;
+                break;  
             }
+
+
         }
         close(socketDialogue);
         printf("Fin de la session client.\n");
