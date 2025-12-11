@@ -139,22 +139,26 @@ int main() {
             }
             //Correct letter -> update displayed word
             else {
+                int lettres_trouvees_cette_tour = 0;
                 for(int i=1; i<=tab[0]; i++){
-                    lettresTrouvees[tab[i]] = word_global[tab[i]];
+                    if(lettresTrouvees[tab[i]] == '_'){
+                        lettresTrouvees[tab[i]] = word_global[tab[i]];
+                        lettres_trouvees_cette_tour++;
+                    }
                 }
-                lettresRestantes -= tab[0];
-                sprintf(reponse, "%s %d", lettresTrouvees, game.nb_life);
+                lettresRestantes -= lettres_trouvees_cette_tour;
+
+                //All letters found -> win
+                if(lettresRestantes == 0){
+                    sprintf(reponse, "win");
+                } else {
+                    sprintf(reponse, "%s %d", lettresTrouvees, game.nb_life);
+                }
             }
 
             //Send current state to both players
             send(player1, reponse, strlen(reponse)+1, 0);
             send(player2, reponse, strlen(reponse)+1, 0);
-
-            //All letters found -> win
-            if(lettresRestantes == 0){
-                printf("Mot trouvé par le joueur 2.\n");
-                break;
-            }
         }
 
         //Close connections with both players
