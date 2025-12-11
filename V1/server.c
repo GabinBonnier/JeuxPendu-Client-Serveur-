@@ -85,16 +85,11 @@ int main() {
             int sockAutre = (tour == 1) ? sock2 : sock1;
             Game *gameActuel = (tour == 1) ? &game1 : &game2;
 
-            // Informer les joueurs sur leur tour
+            // --- INFORMER LES JOUEURS ---
             send(sockActuel, "YOUR_TURN", strlen("YOUR_TURN")+1, 0);
             send(sockAutre, "WAIT", strlen("WAIT")+1, 0);
 
-            // --- LOG côté serveur ---
-            printf("\nTour du joueur %d\n", tour);
-            printf("Joueur %d : C'est votre tour !\n", tour);
-            printf("Joueur %d : Ce n'est pas votre tour ! Patientez...\n", (tour == 1) ? 2 : 1);
-
-            // Recevoir la lettre/mot du joueur
+            // --- RECEVOIR LETTRE/MOT ---
             char buffer[LG_MESSAGE];
             memset(buffer, 0, LG_MESSAGE);
             int lus = recv(sockActuel, buffer, LG_MESSAGE, 0);
@@ -104,34 +99,42 @@ int main() {
             }
             buffer[strcspn(buffer, "\n")] = '\0';
 
-            // Tester la lettre/mot
             int tab[50];
             test_input_game(gameActuel, buffer, tab);
 
+            // --- PRÉPARER MESSAGES ---
+            char msgActuel[LG_MESSAGE];
+            char msgAutre[LG_MESSAGE];
+
             if (tab[0] == -1) {
                 gameActuel->nb_life--;
+                snprintf(msgActuel, LG_MESSAGE, "notfound %d", gameActuel->nb_life);
+                snprintf(msgAutre, LG_MESSAGE, "UPDATE L'autre joueur n'a rien trouvé. Mot : %s", lettresTrouvees);
+
                 if (gameActuel->nb_life <= 0) {
-                    snprintf(msg, LG_MESSAGE, "lost %s", motGlobal);
-                    send(sockActuel, msg, strlen(msg)+1, 0);
-                    send(sockAutre, "END L'autre joueur a perdu !", strlen("END L'autre joueur a perdu !")+1, 0);
+                    snprintf(msgActuel, LG_MESSAGE, "lost %s", motGlobal);
+                    send(sockActuel, msgActuel, strlen(msgActuel)+1, 0);
+                    send(sockAutre, "END L'autre joueur a perdu !", 28, 0);
                     finJeu = 1;
                     break;
                 }
-                snprintf(msg, LG_MESSAGE, "notfound %d", gameActuel->nb_life);
             } else if (tab[0] == 100) {
-                snprintf(msg, LG_MESSAGE, "win %s", motGlobal);
-                send(sockActuel, msg, strlen(msg)+1, 0);
-                send(sockAutre, "END L'autre joueur a gagné !", strlen("END L'autre joueur a gagné !")+1, 0);
+                snprintf(msgActuel, LG_MESSAGE, "win %s", motGlobal);
+                send(sockActuel, msgActuel, strlen(msgActuel)+1, 0);
+                send(sockAutre, "END L'autre joueur a gagné !", 28, 0);
                 finJeu = 1;
                 break;
             } else {
                 for (int i=1; i<=tab[0]; i++) lettresTrouvees[tab[i]] = motGlobal[tab[i]];
-                snprintf(msg, LG_MESSAGE, "%s %d", lettresTrouvees, gameActuel->nb_life);
+                snprintf(msgActuel, LG_MESSAGE, "%s %d", lettresTrouvees, gameActuel->nb_life);
+                snprintf(msgAutre, LG_MESSAGE, "UPDATE L'autre joueur a trouvé : %s", lettresTrouvees);
             }
 
-            send(sockActuel, msg, strlen(msg)+1, 0);
+            // --- ENVOI MESSAGES ---
+            send(sockActuel, msgActuel, strlen(msgActuel)+1, 0);
+            send(sockAutre, msgAutre, strlen(msgAutre)+1, 0);
 
-            // Changer de tour
+            // --- CHANGER DE TOUR ---
             tour = (tour == 1) ? 2 : 1;
         }
         close(sock1);
