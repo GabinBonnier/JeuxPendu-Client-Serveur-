@@ -71,7 +71,7 @@ int main() {
         for (int i=0; i<strlen(motGlobal); i++) lettresTrouvees[i] = '_';
         lettresTrouvees[strlen(motGlobal)] = '\0';
 
-        int tour = 2; // Joueur 1 commence
+        int tour = 1; // Joueur 1 commence
         int finJeu = 0;
 
         // Envoi message "start x" à tous les clients
