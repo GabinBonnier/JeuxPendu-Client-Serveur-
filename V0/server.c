@@ -125,6 +125,12 @@ int main() {
                 sprintf(reponse, "%s %d", lettresTrouvees, game.nb_life);
             }
 
+            //If the all of the letter is found -> win
+            if(lettresRestantes == 0){
+                sprintf(reponse, "win");
+                printf("Mot trouvé par le joueur.\n");
+            }
+
             //Send the result of the letter at the client
             send(socketDialogue, reponse, strlen(reponse)+1, 0);
 
@@ -134,11 +140,6 @@ int main() {
                 break;
             }
 
-            //If the all of the letter is found -> win
-            if(lettresRestantes == 0){
-                printf("Mot trouvé par le joueur.\n");
-                break;
-            }
         }
         close(socketDialogue);
         printf("Fin de la session client.\n");

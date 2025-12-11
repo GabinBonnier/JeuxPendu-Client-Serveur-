@@ -120,7 +120,7 @@ int main(int argc, char *argv[]){
 
 		//THe server send a win message -> word send was good
 		else if (strcmp(reponse, "win") == 0) {
-			printf("Félicitations ! Vous avez trouvé le mot : %s\n", buffer);
+			printf("Félicitations ! Vous avez trouvé le mot\n");
 			break;
 		}
 
