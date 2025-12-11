@@ -23,7 +23,6 @@ int main(int argc, char *argv[]){
 	int port_dest;//Port of the server
 
 	int vies;//Life of the player
-	
 	char motActuel[256];//Word return by the server if the player lost
 
 	//Connection with a server
@@ -88,7 +87,6 @@ int main(int argc, char *argv[]){
 
 	while(1){
 
-		
 		//Receive the intput of the user
 		printf("\nEntrez une lettre/mot : ");
 		fgets(buffer, sizeof(buffer), stdin);
@@ -121,11 +119,10 @@ int main(int argc, char *argv[]){
 		}
 
 		//THe server send a win message -> word send was good
-		else if (sscanf(reponse, "win %s", motActuel) == 1) {
-			printf("Félicitations ! Vous avez trouvé le mot : %s\n", motActuel);
+		else if (strcmp(reponse, "win") == 0) {
+			printf("Félicitations ! Vous avez trouvé le mot\n");
 			break;
 		}
-
 
 		//Show the word with the letter find and the - if the letter was good
 		else {
