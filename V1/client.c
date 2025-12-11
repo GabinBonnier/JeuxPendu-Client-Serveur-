@@ -88,12 +88,8 @@ int main(int argc, char *argv[]) {
                 }
             }
         } 
-        else if(strncmp(buffer, "UPDATE", 6) == 0){
-            char motTemp[50];
-            sscanf(buffer, "UPDATE %s", motTemp);
-            strcpy(motAffiche, motTemp);
+        else if(strcmp(buffer, "WAIT") == 0){
             printf("Ce n'est pas votre tour ! Patientez...\n");
-            printf("Mot actuel : %s\n", motAffiche);
         }
         else if(strncmp(buffer, "END", 3) == 0){
             printf("%s\n", buffer+4);
