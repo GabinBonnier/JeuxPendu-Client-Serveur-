@@ -1,119 +1,127 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <sys/types.h>
 #include <sys/socket.h>
-#include <string.h>
-#include <netinet/in.h>
 #include <arpa/inet.h>
+#include <string.h>
+
 #include "game.h"
+
 #define LG_MESSAGE 256
-int main(int argc, char *argv[]) {
-    if(argc < 3) {
-        printf("USAGE : %s ip port\n", argv[0]);
-        exit(-1);
+
+// Lecture d'une ligne terminée par \n
+int recv_line(int sock, char *buffer, int max) {
+    int i = 0;
+    char c;
+
+    while (i < max - 1) {
+        int n = recv(sock, &c, 1, 0);
+        if (n <= 0) return n;
+        if (c == '\n') break;
+        buffer[i++] = c;
     }
-    char *ip_dest = argv[1];
-    int port_dest = atoi(argv[2]);
+    buffer[i] = '\0';
+    return i;
+}
+
+int main(int argc, char *argv[]) {
+
+    if (argc < 3) {
+        printf("USAGE : %s ip port\n", argv[0]);
+        return 0;
+    }
+
     int sock = socket(AF_INET, SOCK_STREAM, 0);
-    if(sock<0){ perror("socket"); exit(-1); }
+
     struct sockaddr_in addr;
     addr.sin_family = AF_INET;
-    addr.sin_port = htons(port_dest);
-    inet_aton(ip_dest,&addr.sin_addr);
-    if(connect(sock,(struct sockaddr*)&addr,sizeof(addr))<0){
-        perror("connect");
-        close(sock);
-        exit(-2);
-    }
+    addr.sin_port = htons(atoi(argv[2]));
+    inet_aton(argv[1], &addr.sin_addr);
+
+    connect(sock, (struct sockaddr*)&addr, sizeof(addr));
     printf("Connecté au serveur.\n");
+
     char buffer[LG_MESSAGE];
-    int nb = recv(sock, buffer, LG_MESSAGE, 0);
-    if(nb <=0){ printf("Le serveur a fermé la connexion.\n"); return 0; }
+
+    // --- Réception du message start ---
+    recv_line(sock, buffer, LG_MESSAGE);
+
     int tailleMot;
-    if(sscanf(buffer,"start %d",&tailleMot)!=1){
-        printf("Protocole invalide.\n"); close(sock); return 0;
-    }
+    sscanf(buffer, "start %d", &tailleMot);
+
     char motAffiche[50];
-    for(int i=0;i<tailleMot;i++) motAffiche[i]='_';
-    motAffiche[tailleMot]='\0';
-    printf("Le mot comporte %d lettres.\nMot à deviner : %s\n", tailleMot, motAffiche);
-    
-   while (1) {
+    for (int i=0; i<tailleMot; i++) motAffiche[i] = '_';
+    motAffiche[tailleMot] = '\0';
 
-        int nb = recv(sock, buffer, LG_MESSAGE, 0);
-        if (nb <= 0) {
-            printf("Le serveur a fermé la connexion.\n");
-            break;
-        }
-        buffer[nb] = '\0';
+    printf("Mot à deviner (%d lettres) : %s\n", tailleMot, motAffiche);
 
-        // ---- TRAITEMENT DES MESSAGES ----
+    // ----- BOUCLE PRINCIPALE -----
+    while (1) {
 
-        // --- Mise à jour envoyée par l'autre joueur ---
+        if (recv_line(sock, buffer, LG_MESSAGE) <= 0) break;
+
+        // ----- UPDATE -----
         if (strncmp(buffer, "UPDATE", 6) == 0) {
-            printf("\n%s\n", buffer + 7);
-            continue;  // on attend le prochain message (souvent YOUR_TURN après)
+            printf("%s\n", buffer + 7);
+            continue;
         }
 
-        // --- Le serveur indique d'attendre ---
-        else if (strcmp(buffer, "WAIT") == 0) {
-            printf("Ce n'est pas votre tour ! Patientez...\n");
-            continue;  // on attend un nouveau message (UPDATE ou YOUR_TURN)
+        // ----- WAIT -----
+        if (strcmp(buffer, "WAIT") == 0) {
+            printf("En attente de l’autre joueur...\n");
+            continue;
         }
 
-        // --- C'est le tour du joueur ---
-        else if (strcmp(buffer, "YOUR_TURN") == 0) {
-            printf("\nC'est votre tour !\n Entrez une lettre/mot : ");
-            fgets(buffer, sizeof(buffer), stdin);
+        // ----- YOUR TURN -----
+        if (strcmp(buffer, "YOUR_TURN") == 0) {
+            printf("C'est votre tour : ");
+            fgets(buffer, LG_MESSAGE, stdin);
             buffer[strcspn(buffer, "\n")] = '\0';
-
-            send(sock, buffer, strlen(buffer) + 1, 0);
-            continue; // La réponse du serveur sera traitée dans une prochaine itération
+            send(sock, buffer, strlen(buffer), 0);
+            continue;
         }
 
-        // --- Perdu ---
-        else if (strncmp(buffer, "lost", 4) == 0) {
-            char mot[50];
-            sscanf(buffer, "lost %s", mot);
-            printf("Vous n'avez plus de vies ! Le mot était : %s\n", mot);
-            break;
-        }
-
-        // --- Gagné ---
-        else if (strncmp(buffer, "win", 3) == 0) {
-            char mot[50];
-            sscanf(buffer, "win %s", mot);
-            printf("Félicitations ! Vous avez trouvé le mot : %s\n", mot);
-            break;
-        }
-
-        // --- Lettre incorrecte ---
-        else if (strncmp(buffer, "notfound", 8) == 0) {
+        // ----- NOTFOUND -----
+        if (strncmp(buffer, "notfound", 8) == 0) {
             int vies;
             sscanf(buffer, "notfound %d", &vies);
-            printf("Lettre absente ! Il vous reste %d vies.\n", vies);
+            printf("Lettre incorrecte. Vies restantes : %d\n", vies);
             affichage(vies);
             continue;
         }
 
-        // --- Mise à jour du mot ---
-        else {
-            int vies;
-            char motTemp[50];
-            if (sscanf(buffer, "%s %d", motTemp, &vies) == 2) {
-                strcpy(motAffiche, motTemp);
-                printf("Mot actuel : %s | Vies restantes : %d\n", motAffiche, vies);
-                affichage(vies);
-            }
+        // ----- LOST -----
+        if (strncmp(buffer, "lost", 4) == 0) {
+            char mot[50];
+            sscanf(buffer, "lost %s", mot);
+            printf("Vous avez perdu ! Le mot était : %s\n", mot);
+            break;
         }
 
-        // --- Fin de partie (message global serveur) ---
+        // ----- WIN -----
+        if (strncmp(buffer, "win", 3) == 0) {
+            char mot[50];
+            sscanf(buffer, "win %s", mot);
+            printf("Bravo ! Vous avez trouvé : %s\n", mot);
+            break;
+        }
+
+        // ----- END -----
         if (strncmp(buffer, "END", 3) == 0) {
             printf("%s\n", buffer + 4);
             break;
         }
+
+        // ----- MISE À JOUR DU MOT -----
+        char temp[50];
+        int vies;
+        if (sscanf(buffer, "%s %d", temp, &vies) == 2) {
+            strcpy(motAffiche, temp);
+            printf("Mot : %s | Vies : %d\n", motAffiche, vies);
+            affichage(vies);
+        }
     }
+
     close(sock);
     return 0;
 }
