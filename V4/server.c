@@ -1,14 +1,11 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/socket.h>
 #include <string.h>
-#include <netinet/in.h>
+#include <unistd.h>
 #include <arpa/inet.h>
+#include "game.h"
 
 #define PORT 5003
-#define LG_MESSAGE 512
 
 int main() {
     int sockListen = socket(AF_INET, SOCK_STREAM, 0);
@@ -17,119 +14,80 @@ int main() {
     int opt = 1;
     setsockopt(sockListen, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
 
-    struct sockaddr_in addrLocal;
-    memset(&addrLocal, 0, sizeof(addrLocal));
-    addrLocal.sin_family = AF_INET;
-    addrLocal.sin_addr.s_addr = htonl(INADDR_ANY);
-    addrLocal.sin_port = htons(PORT);
+    struct sockaddr_in addr;
+    addr.sin_family = AF_INET;
+    addr.sin_addr.s_addr = INADDR_ANY;
+    addr.sin_port = htons(PORT);
 
-    if(bind(sockListen, (struct sockaddr *)&addrLocal, sizeof(addrLocal)) < 0){ perror("bind"); exit(-2); }
-    if(listen(sockListen, 5) < 0){ perror("listen"); exit(-3); }
+    if(bind(sockListen, (struct sockaddr*)&addr, sizeof(addr)) < 0){ perror("bind"); exit(-1); }
+    if(listen(sockListen, 5) < 0){ perror("listen"); exit(-1); }
 
-    printf("Serveur PN V4 en écoute sur le port %d...\n", PORT);
+    printf("Serveur en écoute sur le port %d...\n", PORT);
 
-    while(1) {
-        struct sockaddr_in addr1, addr2;
-        socklen_t l1 = sizeof(addr1), l2 = sizeof(addr2);
+    while(1){
+        struct sockaddr_in j1, j2;
+        socklen_t l1 = sizeof(j1), l2 = sizeof(j2);
 
-        printf("En attente de joueurs...\n");
-        int player1 = accept(sockListen, (struct sockaddr *)&addr1, &l1);
-        if(player1 < 0){ perror("accept joueur1"); continue; }
+        int s1 = accept(sockListen, (struct sockaddr*)&j1, &l1);
         printf("Joueur 1 connecté\n");
-
-        int player2 = accept(sockListen, (struct sockaddr *)&addr2, &l2);
-        if(player2 < 0){ perror("accept joueur2"); close(player1); continue; }
+        int s2 = accept(sockListen, (struct sockaddr*)&j2, &l2);
         printf("Joueur 2 connecté\n");
 
-        // Attribution des rôles
-        send(player1, "choose", 7, 0); // joueur 1 choisit le mot
-        send(player2, "start", 6, 0);  // joueur 2 devine
+        Game game;
+        char mot[MAX_WORD];
+        send(s1, "choose", 7, 0);
+        recv(s1, mot, sizeof(mot), 0);
+        mot[strcspn(mot, "\n")] = 0;
+        init_game(&game, mot);
 
-        char motSecret[256];
-        int nb = recv(player1, motSecret, sizeof(motSecret), 0);
-        if(nb <= 0){ close(player1); close(player2); continue; }
-        motSecret[nb] = '\0';
+        char affiche[MAX_WORD];
+        for(int i=0; i<game.nb_letters; i++) affiche[i] = '_';
+        affiche[game.nb_letters] = '\0';
 
-        int vies = 6;
-        int tailleMot = strlen(motSecret);
-        char motAffiche[256];
-        for(int i=0;i<tailleMot;i++) motAffiche[i] = '_';
-        motAffiche[tailleMot]='\0';
+        char msg[MAX_BUFFER];
+        sprintf(msg, "start %d", game.nb_letters);
+        send(s1, msg, strlen(msg)+1, 0);
+        send(s2, msg, strlen(msg)+1, 0);
 
-        send(player2, motSecret, strlen(motSecret)+1, 0);
+        int lettresRestantes = game.nb_letters;
 
         while(1){
-            char buffer[LG_MESSAGE];
-            nb = recv(player2, buffer, sizeof(buffer), 0);
-            if(nb <= 0) break;
-            buffer[nb]='\0';
+            char buffer[MAX_BUFFER];
+            int lus = recv(s2, buffer, sizeof(buffer), 0);
+            if(lus <= 0) break;
 
-            if(strlen(buffer)==1){ // Lettre
-                char c = buffer[0];
-                int trouve = 0;
-                for(int i=0;i<tailleMot;i++){
-                    if(motSecret[i]==c && motAffiche[i]=='_'){
-                        motAffiche[i]=c;
-                        trouve++;
-                    }
-                }
+            int tab[50];
+            test_input_game(&game, buffer, tab);
 
-                // Vérifier si toutes les lettres sont trouvées (victoire automatique)
-                int gagne = 1;
-                for(int i=0;i<tailleMot;i++){
-                    if(motAffiche[i]=='_'){
-                        gagne = 0;
-                        break;
-                    }
-                }
-                if(gagne){
-                    snprintf(buffer, LG_MESSAGE, "win");
-                    send(player1, buffer, strlen(buffer)+1, 0);
-                    send(player2, buffer, strlen(buffer)+1, 0);
+            if(tab[0] == -1){
+                game.nb_life--;
+                if(game.nb_life <= 0){
+                    sprintf(msg, "lost %s", game.secret_word);
+                    send(s1, msg, strlen(msg)+1,0);
+                    send(s2, msg, strlen(msg)+1,0);
                     break;
                 }
-
-                if(trouve>0){
-                    snprintf(buffer, LG_MESSAGE, "%s %d", motAffiche, vies);
-                    send(player1, buffer, strlen(buffer)+1, 0);
-                    send(player2, buffer, strlen(buffer)+1, 0);
-                } else {
-                    vies--;
-                    snprintf(buffer, LG_MESSAGE, "notfound %d", vies);
-                    send(player1, buffer, strlen(buffer)+1, 0);
-                    send(player2, buffer, strlen(buffer)+1, 0);
-                    if(vies <= 0) {
-                        snprintf(buffer, LG_MESSAGE, "lost %s", motSecret);
-                        send(player1, buffer, strlen(buffer)+1, 0);
-                        send(player2, buffer, strlen(buffer)+1, 0);
-                        break;
-                    }
-                }
-            } else { // Mot complet
-                if(strcmp(buffer, motSecret)==0){
-                    snprintf(buffer, LG_MESSAGE, "win");
-                    send(player1, buffer, strlen(buffer)+1, 0);
-                    send(player2, buffer, strlen(buffer)+1, 0);
-                    break;
-                } else {
-                    vies--;
-                    if(vies <=0){
-                        snprintf(buffer, LG_MESSAGE, "lost %s", motSecret);
-                        send(player1, buffer, strlen(buffer)+1, 0);
-                        send(player2, buffer, strlen(buffer)+1, 0);
-                        break;
-                    } else {
-                        snprintf(buffer, LG_MESSAGE, "notfound %d", vies);
-                        send(player1, buffer, strlen(buffer)+1, 0);
-                        send(player2, buffer, strlen(buffer)+1, 0);
-                    }
-                }
+                sprintf(msg, "notfound %d", game.nb_life);
             }
+            else if(tab[0] == 100){
+                sprintf(msg, "win");
+                send(s1, msg, strlen(msg)+1,0);
+                send(s2, msg, strlen(msg)+1,0);
+                break;
+            }
+            else {
+                for(int i=1;i<=tab[0];i++){
+                    if(affiche[tab[i]]=='_'){ affiche[tab[i]]=game.secret_word[tab[i]]; lettresRestantes--; }
+                }
+                if(lettresRestantes==0) sprintf(msg,"win");
+                else sprintf(msg,"%s %d", affiche, game.nb_life);
+            }
+            send(s1, msg, strlen(msg)+1,0);
+            send(s2, msg, strlen(msg)+1,0);
         }
 
-        close(player1);
-        close(player2);
-        printf("Fin de la partie.\n");
+        close(s1); close(s2);
+        printf("Partie terminée.\n");
     }
 
     close(sockListen);

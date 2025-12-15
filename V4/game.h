@@ -6,6 +6,10 @@
 #include <string.h>
 #include <time.h>
 
+#define MAX_WORD 50
+#define MAX_BUFFER 256
+
+
 /* Struct with the informations of a game */
 typedef struct {
     char secret_word[50];
