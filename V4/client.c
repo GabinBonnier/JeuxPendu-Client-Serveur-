@@ -1,85 +1,130 @@
+// client.c — PN V4 STRICT
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <string.h>
+#include <unistd.h>
 #include <arpa/inet.h>
-#include "game.h"
 
-#define LG_MESSAGE 256
+#define BUF 256
+#define VIES 6
 
-int main(int argc,char *argv[]){
-    if(argc < 3){ printf("USAGE : %s ip port\n", argv[0]); return -1; }
+int main(int argc, char *argv[]) {
+    if (argc < 3) {
+        printf("Usage: %s ipServeur portServeur\n", argv[0]);
+        return 1;
+    }
 
-    char ip[16]; strncpy(ip, argv[1], 16);
-    int port; sscanf(argv[2], "%d", &port);
-
-    int sock = socket(AF_INET, SOCK_STREAM, 0);
+    /* ===== Connexion au serveur ===== */
+    int sockServ = socket(AF_INET, SOCK_STREAM, 0);
     struct sockaddr_in serv;
     serv.sin_family = AF_INET;
-    serv.sin_port = htons(port);
-    inet_aton(ip, &serv.sin_addr);
+    serv.sin_port = htons(atoi(argv[2]));
+    inet_aton(argv[1], &serv.sin_addr);
 
-    if(connect(sock,(struct sockaddr*)&serv,sizeof(serv))<0){ perror("connect"); return -1; }
+    connect(sockServ, (struct sockaddr*)&serv, sizeof(serv));
 
-    char buffer[LG_MESSAGE];
-    int nb = recv(sock, buffer, sizeof(buffer), 0);
-    if(nb <= 0){ printf("Le serveur a fermé la connexion.\n"); return 0; }
+    char role[3], ipPeer[16];
+    int portPeer;
 
-    if(strcmp(buffer,"choose")==0){
-        printf("Vous êtes joueur 1. Entrez le mot secret : ");
-        fgets(buffer,sizeof(buffer),stdin);
-        buffer[strcspn(buffer,"\n")]=0;
-        send(sock, buffer, strlen(buffer)+1, 0);
+    char buffer[BUF];
+    recv(sockServ, buffer, BUF, 0);
+    close(sockServ);
 
-        nb = recv(sock, buffer, sizeof(buffer), 0);
-        printf("Début de la partie : %s\n", buffer);
+    sscanf(buffer, "%s %s %d", role, ipPeer, &portPeer);
 
-        while(1){
-            nb = recv(sock, buffer, sizeof(buffer), 0);
-            if(nb <=0) break;
-            if(strcmp(buffer,"win")==0){ printf("Joueur 2 a gagné !\n"); break; }
-            else if(strncmp(buffer,"lost",4)==0){ printf("Joueur 2 a perdu. Mot : %s\n", buffer+5); break; }
-            else { printf("Mot actuel : %s\n", buffer); }
+    int isPlayer1 = (strcmp(role, "P1") == 0);
+    int sockGame;
+
+    /* ================= PLAYER 1 ================= */
+    if (isPlayer1) {
+        sockGame = socket(AF_INET, SOCK_STREAM, 0);
+
+        struct sockaddr_in addr;
+        addr.sin_family = AF_INET;
+        addr.sin_addr.s_addr = INADDR_ANY;
+        addr.sin_port = htons(portPeer);
+
+        bind(sockGame, (struct sockaddr*)&addr, sizeof(addr));
+        listen(sockGame, 1);
+
+        printf("Player 1 : en attente du joueur 2...\n");
+        sockGame = accept(sockGame, NULL, NULL);
+
+        char mot[BUF];
+        printf("Choisissez le mot secret : ");
+        fgets(mot, BUF, stdin);
+        mot[strcspn(mot, "\n")] = 0;
+
+        send(sockGame, mot, strlen(mot) + 1, 0);
+
+        while (1) {
+            char prop[BUF];
+            int n = recv(sockGame, prop, BUF, 0);
+            if (n <= 0) break;
+
+            printf("Joueur 2 propose : %s\n", prop);
+            if (!strcmp(prop, "GAGNE") || !strcmp(prop, "PERDU"))
+                break;
         }
     }
-    else if(strncmp(buffer,"start",5)==0){
-        int tailleMot; sscanf(buffer,"start %d",&tailleMot);
-        char motAffiche[MAX_WORD];
-        for(int i=0;i<tailleMot;i++) motAffiche[i]='_';
-        motAffiche[tailleMot]='\0';
-        int vies=6;
-        printf("Vous êtes joueur 2. Mot de %d lettres.\n", tailleMot);
-        printf("Mot actuel : %s | Vies : %d\n", motAffiche,vies);
 
-        while(1){
-            printf("Lettre ou mot : ");
-            fgets(buffer,sizeof(buffer),stdin);
-            buffer[strcspn(buffer,"\n")]=0;
-            send(sock, buffer, strlen(buffer)+1, 0);
+    /* ================= PLAYER 2 ================= */
+    else {
+        sleep(1); // laisse P1 écouter
 
-            nb = recv(sock, buffer, sizeof(buffer), 0);
-            if(nb <=0) break;
+        sockGame = socket(AF_INET, SOCK_STREAM, 0);
+        struct sockaddr_in addr;
+        addr.sin_family = AF_INET;
+        addr.sin_port = htons(portPeer);
+        inet_aton(ipPeer, &addr.sin_addr);
 
-            if(sscanf(buffer,"notfound %d",&vies)==1){
-                printf("Lettre absente ! Vies : %d\n",vies);
-                affichage(vies);
-            } else if(strncmp(buffer,"lost",4)==0){
-                printf("Perdu ! Mot : %s\n",buffer+5);
+        connect(sockGame, (struct sockaddr*)&addr, sizeof(addr));
+
+        printf("En attente du choix du mot...\n");
+
+        char mot[BUF];
+        recv(sockGame, mot, BUF, 0);
+
+        int len = strlen(mot);
+        char affiche[BUF];
+        memset(affiche, '_', len);
+        affiche[len] = '\0';
+
+        int vies = VIES;
+
+        while (vies > 0) {
+            printf("Mot : %s | Vies : %d\n", affiche, vies);
+            printf("Lettre : ");
+
+            char c;
+            scanf(" %c", &c);
+
+            char prop[2] = {c, '\0'};
+            send(sockGame, prop, 2, 0);
+
+            int trouve = 0;
+            for (int i = 0; i < len; i++) {
+                if (mot[i] == c) {
+                    affiche[i] = c;
+                    trouve = 1;
+                }
+            }
+
+            if (!trouve) vies--;
+
+            if (!strcmp(mot, affiche)) {
+                send(sockGame, "GAGNE", 6, 0);
+                printf("🎉 Gagné !\n");
                 break;
-            } else if(strcmp(buffer,"win")==0){
-                printf("Victoire !\n");
-                break;
-            } else {
-                char temp[MAX_WORD];
-                int nv;
-                if(sscanf(buffer,"%s %d",temp,&nv)==2){
-                    strcpy(motAffiche,temp); vies=nv;
-                    printf("Mot actuel : %s | Vies : %d\n", motAffiche,vies);
-                } else printf("Message inconnu : %s\n",buffer);
             }
         }
+
+        if (vies == 0) {
+            send(sockGame, "PERDU", 6, 0);
+            printf("❌ Perdu ! Mot : %s\n", mot);
+        }
     }
 
-    close(sock);
+    close(sockGame);
     return 0;
 }
