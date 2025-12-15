@@ -2,7 +2,7 @@
 #include <string.h>
 #include "game.h"
 
-/* Initialise une partie avec un mot donné */
+/* Starts a game with a given word */
 void init_game(Game *g, const char *word) {
     strncpy(g->secret_word, word, MAX_WORD_LEN);
     g->secret_word[MAX_WORD_LEN-1] = '\0';
@@ -10,7 +10,7 @@ void init_game(Game *g, const char *word) {
     g->nb_life = 6;
 }
 
-/* Teste l'entrée de l'utilisateur */
+/* Tests user input */
 void test_input_game(const Game *g, const char *input, int tab_occ[50]) {
     const char *secret_word = g->secret_word;
     int len_input = strlen(input);
@@ -29,7 +29,7 @@ void test_input_game(const Game *g, const char *input, int tab_occ[50]) {
     tab_occ[0] = (strcmp(secret_word, input) == 0) ? 100 : -1;
 }
 
-/* Affichage du pendu */
+/* Display of the hanged man */
 void affichage(const int nb_life) {    
     switch(nb_life) {
         case 6:

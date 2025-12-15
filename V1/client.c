@@ -9,7 +9,7 @@
 
 #define LG_MESSAGE 256
 
-// Lecture d'une ligne terminée par \n
+// Reading a line ending with \n
 int recv_line(int sock, char *buffer, int max) {
     int i = 0;
     char c;
@@ -43,7 +43,7 @@ int main(int argc, char *argv[]) {
 
     char buffer[LG_MESSAGE];
 
-    // --- Réception du message start ---
+    // --- Receipt of the start message ---
     recv_line(sock, buffer, LG_MESSAGE);
 
     int tailleMot;
@@ -55,7 +55,7 @@ int main(int argc, char *argv[]) {
 
     printf("Mot à deviner (%d lettres) : %s\n", tailleMot, motAffiche);
 
-    // ----- BOUCLE PRINCIPALE -----
+    // ----- MAIN LOOP -----
     while (1) {
 
         if (recv_line(sock, buffer, LG_MESSAGE) <= 0) break;
@@ -112,7 +112,7 @@ int main(int argc, char *argv[]) {
             break;
         }
 
-        // ----- MISE À JOUR DU MOT -----
+        // ----- UPDATE WORD -----
         char temp[50];
         int vies;
         if (sscanf(buffer, "%s %d", temp, &vies) == 2) {

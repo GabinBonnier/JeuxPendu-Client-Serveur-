@@ -13,7 +13,7 @@
 #define PORT 5003
 #define LG_MESSAGE 256
 
-// Envoi sécurisé d’une ligne terminée par \n
+// Securely sending a line ending with \n
 void send_line(int sock, const char *msg) {
     char buf[LG_MESSAGE];
     snprintf(buf, LG_MESSAGE, "%s\n", msg);
@@ -25,7 +25,7 @@ int main() {
     struct sockaddr_in addrLocal;
     socklen_t tailleAddr = sizeof(addrLocal);
 
-    // Création socket
+    // Socket creation
     sockEcoute = socket(AF_INET, SOCK_STREAM, 0);
     if (sockEcoute < 0) { perror("socket"); exit(-1); }
 
@@ -63,8 +63,8 @@ int main() {
         sock2 = accept(sockEcoute, (struct sockaddr*)&addrClient2, &tailleClient);
         printf("Joueur 2 connecté.\n");
 
-        // -------- INIT DU JEU --------
-        char motSecret[] = "mot";  // mot fixe pour les tests
+        // -------- START OF THE GAME --------
+        char motSecret[] = "mot"; 
         int taille = strlen(motSecret);
 
         Game game1, game2;
@@ -84,18 +84,18 @@ int main() {
         int tour = 1;
         int finJeu = 0;
 
-        // -------- BOUCLE DE PARTIE --------
+        // -------- PARTY LOOP --------
         while (!finJeu) {
 
             int sockActuel = (tour == 1 ? sock1 : sock2);
             int sockAutre  = (tour == 1 ? sock2 : sock1);
             Game *gameAct  = (tour == 1 ? &game1 : &game2);
 
-            // Dire qui joue
+            // Say who's playing
             send_line(sockActuel, "YOUR_TURN");
             send_line(sockAutre, "WAIT");
 
-            // Lire entrée du joueur
+            // Read player entry
             char buffer[LG_MESSAGE];
             int lus = recv(sockActuel, buffer, LG_MESSAGE - 1, 0);
             if (lus <= 0) {
@@ -111,7 +111,7 @@ int main() {
             char msgActuel[LG_MESSAGE];
             char msgAutre[LG_MESSAGE];
 
-            // ---------- LETTRE INCORRECTE ----------
+            // ---------- INCORRECT LETTER ----------
             if (tab[0] == -1) {
 
                 gameAct->nb_life--;
@@ -129,7 +129,7 @@ int main() {
                 }
             }
 
-            // ---------- MOT ENTIER TAPE ----------
+            // ---------- FULL WORD TYPE ----------
             else if (tab[0] == 100) {
                 snprintf(msgActuel, LG_MESSAGE, "win %s", motSecret);
                 send_line(sockActuel, msgActuel);
@@ -138,14 +138,14 @@ int main() {
                 break;
             }
 
-            // ---------- LETTRE(S) TROUVÉE(S) ----------
+            // ---------- LETTER(S) FOUND ----------
             else {
 
-                // Mise à jour des lettres trouvées
+                // Update of letters found
                 for (int i = 1; i <= tab[0]; i++)
                     lettresTrouvees[tab[i]] = motSecret[tab[i]];
 
-                // NOUVELLE CONDITION : mot entièrement révélé
+                // NEW CONDITION: word fully revealed
                 if (strcmp(lettresTrouvees, motSecret) == 0) {
                     snprintf(msgActuel, LG_MESSAGE, "win %s", motSecret);
                     send_line(sockActuel, msgActuel);
@@ -154,7 +154,7 @@ int main() {
                     break;
                 }
 
-                // Mise à jour normale
+                // Normal update
                 snprintf(msgActuel, LG_MESSAGE, "%s %d",
                          lettresTrouvees, gameAct->nb_life);
 
@@ -163,11 +163,11 @@ int main() {
                          lettresTrouvees);
             }
 
-            // Envoi des messages préparés
+            // Sending prepared messages
             send_line(sockActuel, msgActuel);
             send_line(sockAutre, msgAutre);
 
-            // Changement de tour
+            // Change of tower
             tour = (tour == 1 ? 2 : 1);
         }
 
