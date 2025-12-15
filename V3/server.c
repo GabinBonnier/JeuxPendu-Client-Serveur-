@@ -52,7 +52,7 @@ int main() {
     // Main server loop -> always waiting pour new game sessions
     while(1) {
 
-        printf("Attends le joueur 1\n");
+        printf("\nAttends le joueur 1\n");
         struct sockaddr_in addr1;
         socklen_t l1 = sizeof(addr1);
         int player1 = accept(listenSocket, (struct sockaddr *)&addr1, &l1);
@@ -60,9 +60,9 @@ int main() {
             perror("accept");
             continue;
         }
-        printf("joueur 1 connecté.\n");
+        printf("Joueur 1 connecté.\n");
 
-        printf("Attends pour joueur 2\n");
+        printf("Attends le joueur 2.\n");        
         struct sockaddr_in addr2;
         socklen_t l2 = sizeof(addr2);
         int player2 = accept(listenSocket, (struct sockaddr *)&addr2, &l2);
@@ -71,7 +71,9 @@ int main() {
             close(player1);
             continue;
         }
-        printf("joueur 2 connected.\n");
+        printf("Joueur 2 connecté.\n");
+
+        printf("Serveur crée pour la game\n");
 
         // Create a child process to handle this game session
         pid_t pid = fork();
@@ -115,17 +117,18 @@ int main() {
             }
             discovered[strlen(word_global)] = '\0';
 
-            int remaining = strlen(word_global);
+            int letter_not_found = strlen(word_global);
 
             // Game loop
             while(1){
+
                 //Receive guess from player 2
                 char received[LG_MESSAGE];
                 memset(received, 0, LG_MESSAGE);
 
-                int n = recv(player2, received, LG_MESSAGE, 0);
-                if(n <= 0){
-                    printf("joueur 2 disconnected.\n");
+                int nb = recv(player2, received, LG_MESSAGE, 0);
+                if(nb <= 0){
+                    printf("Serveur %d joueur 2 déconnecté.\n",pid);
                     break;
                 }
 
@@ -152,16 +155,16 @@ int main() {
                 }
                 // Correct letter(s)
                 else {
-                    int foundThisTurn = 0;
+                    int found = 0;
                     for(int i=1; i<=tab[0]; i++){
                         if(discovered[tab[i]] == '_'){
                             discovered[tab[i]] = word_global[tab[i]];
-                            foundThisTurn++;
+                            found++;
                         }
                     }
-                    remaining -= foundThisTurn;
+                    letter_not_found -= found;
 
-                    if(remaining == 0){
+                    if(letter_not_found == 0){
                         sprintf(message, "win");
                     } else {
                         sprintf(message, "%s %d", discovered, game.nb_life);
@@ -177,7 +180,7 @@ int main() {
             close(player1);
             close(player2);
             
-            printf("Fin de la session");
+            printf("Serveur %d Fin de la session\n",pid);
             exit(0);
         }
 

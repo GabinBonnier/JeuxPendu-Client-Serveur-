@@ -13,6 +13,13 @@
 #define PORT 5003
 #define LG_MESSAGE 256
 
+// Envoi sécurisé d’une ligne terminée par \n
+void send_line(int sock, const char *msg) {
+    char buf[LG_MESSAGE];
+    snprintf(buf, LG_MESSAGE, "%s\n", msg);
+    send(sock, buf, strlen(buf), 0);
+}
+
 int main() {
     int sockEcoute;
     struct sockaddr_in addrLocal;
@@ -31,112 +38,142 @@ int main() {
     addrLocal.sin_port = htons(PORT);
 
     if (bind(sockEcoute, (struct sockaddr*)&addrLocal, tailleAddr) < 0) {
-        perror("bind"); exit(-2);
+        perror("bind");
+        exit(-2);
     }
 
     if (listen(sockEcoute, 2) < 0) {
-        perror("listen"); exit(-3);
+        perror("listen");
+        exit(-3);
     }
 
     printf("Serveur en écoute sur le port %d...\n", PORT);
 
     while (1) {
+
         int sock1, sock2;
         struct sockaddr_in addrClient1, addrClient2;
         socklen_t tailleClient = sizeof(struct sockaddr_in);
 
-        printf("\nEn attente du client 1...\n");
+        printf("\nEn attente du joueur 1...\n");
         sock1 = accept(sockEcoute, (struct sockaddr*)&addrClient1, &tailleClient);
-        printf("Client 1 connecté : %s:%d\n", inet_ntoa(addrClient1.sin_addr), ntohs(addrClient1.sin_port));
+        printf("Joueur 1 connecté.\n");
 
-        printf("En attente du client 2...\n");
+        printf("En attente du joueur 2...\n");
         sock2 = accept(sockEcoute, (struct sockaddr*)&addrClient2, &tailleClient);
-        printf("Client 2 connecté : %s:%d\n", inet_ntoa(addrClient2.sin_addr), ntohs(addrClient2.sin_port));
+        printf("Joueur 2 connecté.\n");
 
-        // --- Initialisation du jeu ---
+        // -------- INIT DU JEU --------
+        char motSecret[] = "mot";  // mot fixe pour les tests
+        int taille = strlen(motSecret);
+
         Game game1, game2;
-        char motSecret[] = "mot"; // Mot fixe pour la partie
         init_game(&game1, motSecret);
         init_game(&game2, motSecret);
 
-        printf("Les deux clients sont connectés. Démarrage de la partie...\n");
-        printf("---------------------------------------------------\n");
-        printf("La partie vient de commencer et le mot secret choisi est %s\n", motSecret);
-        printf("Le mot comporte %ld lettres.\n", strlen(motSecret));
-
-        char motGlobal[50];
-        strcpy(motGlobal, game1.secret_word);
-
         char lettresTrouvees[50];
-        for (int i=0; i<strlen(motGlobal); i++) lettresTrouvees[i] = '_';
-        lettresTrouvees[strlen(motGlobal)] = '\0';
+        for (int i = 0; i < taille; i++) lettresTrouvees[i] = '_';
+        lettresTrouvees[taille] = '\0';
 
-        int tour = 1; // Joueur 1 commence
+        char startmsg[50];
+        snprintf(startmsg, 50, "start %d", taille);
+
+        send_line(sock1, startmsg);
+        send_line(sock2, startmsg);
+
+        int tour = 1;
         int finJeu = 0;
 
-        // Envoi message "start x" à tous les clients
-        char msg[LG_MESSAGE];
-        snprintf(msg, LG_MESSAGE, "start %ld", strlen(motGlobal));
-        send(sock1, msg, strlen(msg)+1, 0);
-        send(sock2, msg, strlen(msg)+1, 0);
-
+        // -------- BOUCLE DE PARTIE --------
         while (!finJeu) {
-            int sockActuel = (tour == 1) ? sock1 : sock2;
-            int sockAutre = (tour == 1) ? sock2 : sock1;
-            Game *gameActuel = (tour == 1) ? &game1 : &game2;
 
-            // Informer les joueurs sur leur tour
-            send(sockActuel, "YOUR_TURN", strlen("YOUR_TURN")+1, 0);
-            send(sockAutre, "WAIT", strlen("WAIT")+1, 0);
+            int sockActuel = (tour == 1 ? sock1 : sock2);
+            int sockAutre  = (tour == 1 ? sock2 : sock1);
+            Game *gameAct  = (tour == 1 ? &game1 : &game2);
 
-            // --- LOG côté serveur ---
-            printf("\nTour du joueur %d\n", tour);
-            printf("Joueur %d : C'est votre tour !\n", tour);
-            printf("Joueur %d : Ce n'est pas votre tour ! Patientez...\n", (tour == 1) ? 2 : 1);
+            // Dire qui joue
+            send_line(sockActuel, "YOUR_TURN");
+            send_line(sockAutre, "WAIT");
 
-            // Recevoir la lettre/mot du joueur
+            // Lire entrée du joueur
             char buffer[LG_MESSAGE];
-            memset(buffer, 0, LG_MESSAGE);
-            int lus = recv(sockActuel, buffer, LG_MESSAGE, 0);
+            int lus = recv(sockActuel, buffer, LG_MESSAGE - 1, 0);
             if (lus <= 0) {
                 printf("Client %d déconnecté.\n", tour);
                 break;
             }
-            buffer[strcspn(buffer, "\n")] = '\0';
+            buffer[lus] = '\0';
+            buffer[strcspn(buffer, "\r\n")] = '\0';
 
-            // Tester la lettre/mot
             int tab[50];
-            test_input_game(gameActuel, buffer, tab);
+            test_input_game(gameAct, buffer, tab);
 
+            char msgActuel[LG_MESSAGE];
+            char msgAutre[LG_MESSAGE];
+
+            // ---------- LETTRE INCORRECTE ----------
             if (tab[0] == -1) {
-                gameActuel->nb_life--;
-                if (gameActuel->nb_life <= 0) {
-                    snprintf(msg, LG_MESSAGE, "lost %s", motGlobal);
-                    send(sockActuel, msg, strlen(msg)+1, 0);
-                    send(sockAutre, "END L'autre joueur a perdu !", strlen("END L'autre joueur a perdu !")+1, 0);
+
+                gameAct->nb_life--;
+                snprintf(msgActuel, LG_MESSAGE, "notfound %d", gameAct->nb_life);
+                snprintf(msgAutre, LG_MESSAGE,
+                         "UPDATE L'autre joueur n'a rien trouvé. Mot : %s",
+                         lettresTrouvees);
+
+                if (gameAct->nb_life <= 0) {
+                    snprintf(msgActuel, LG_MESSAGE, "lost %s", motSecret);
+                    send_line(sockActuel, msgActuel);
+                    send_line(sockAutre, "END L'autre joueur a perdu !");
                     finJeu = 1;
                     break;
                 }
-                snprintf(msg, LG_MESSAGE, "notfound %d", gameActuel->nb_life);
-            } else if (tab[0] == 100) {
-                snprintf(msg, LG_MESSAGE, "win %s", motGlobal);
-                send(sockActuel, msg, strlen(msg)+1, 0);
-                send(sockAutre, "END L'autre joueur a gagné !", strlen("END L'autre joueur a gagné !")+1, 0);
-                finJeu = 1;
-                break;
-            } else {
-                for (int i=1; i<=tab[0]; i++) lettresTrouvees[tab[i]] = motGlobal[tab[i]];
-                snprintf(msg, LG_MESSAGE, "%s %d", lettresTrouvees, gameActuel->nb_life);
             }
 
-            send(sockActuel, msg, strlen(msg)+1, 0);
+            // ---------- MOT ENTIER TAPE ----------
+            else if (tab[0] == 100) {
+                snprintf(msgActuel, LG_MESSAGE, "win %s", motSecret);
+                send_line(sockActuel, msgActuel);
+                send_line(sockAutre, "END L'autre joueur a gagné !");
+                finJeu = 1;
+                break;
+            }
 
-            // Changer de tour
-            tour = (tour == 1) ? 2 : 1;
+            // ---------- LETTRE(S) TROUVÉE(S) ----------
+            else {
+
+                // Mise à jour des lettres trouvées
+                for (int i = 1; i <= tab[0]; i++)
+                    lettresTrouvees[tab[i]] = motSecret[tab[i]];
+
+                // NOUVELLE CONDITION : mot entièrement révélé
+                if (strcmp(lettresTrouvees, motSecret) == 0) {
+                    snprintf(msgActuel, LG_MESSAGE, "win %s", motSecret);
+                    send_line(sockActuel, msgActuel);
+                    send_line(sockAutre, "END L'autre joueur a gagné !");
+                    finJeu = 1;
+                    break;
+                }
+
+                // Mise à jour normale
+                snprintf(msgActuel, LG_MESSAGE, "%s %d",
+                         lettresTrouvees, gameAct->nb_life);
+
+                snprintf(msgAutre, LG_MESSAGE,
+                         "UPDATE L'autre joueur a trouvé : %s",
+                         lettresTrouvees);
+            }
+
+            // Envoi des messages préparés
+            send_line(sockActuel, msgActuel);
+            send_line(sockAutre, msgAutre);
+
+            // Changement de tour
+            tour = (tour == 1 ? 2 : 1);
         }
+
         close(sock1);
         close(sock2);
-        printf("\nPartie terminée, en attente de nouveaux joueurs...\n");
+        printf("Partie terminée.\n");
     }
 
     close(sockEcoute);
