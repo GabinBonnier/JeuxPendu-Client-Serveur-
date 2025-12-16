@@ -1,4 +1,4 @@
-// server.c — PN V4 STRICT
+// server.c — PN V4 prêt pour LAN
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -11,17 +11,25 @@
 
 int main() {
     int sock = socket(AF_INET, SOCK_STREAM, 0);
+    if (sock < 0) {
+        perror("socket");
+        exit(1);
+    }
+
     int opt = 1;
     setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
 
     struct sockaddr_in serv;
     serv.sin_family = AF_INET;
-    serv.sin_addr.s_addr = INADDR_ANY;
+    serv.sin_addr.s_addr = INADDR_ANY; // écoute toutes les interfaces
     serv.sin_port = htons(PORT);
 
-    bind(sock, (struct sockaddr*)&serv, sizeof(serv));
-    listen(sock, 10);
+    if (bind(sock, (struct sockaddr*)&serv, sizeof(serv)) < 0) {
+        perror("bind");
+        exit(1);
+    }
 
+    listen(sock, 10);
     printf("Serveur PN V4 prêt (port %d)\n", PORT);
 
     while (1) {
@@ -36,17 +44,19 @@ int main() {
 
         char msg[BUF];
 
-        // Vers joueur 1 : rôle + IP joueur 2
+        // Envoie aux clients le rôle + IP et port de l’autre joueur
         sprintf(msg, "P1 %s %d", inet_ntoa(c2.sin_addr), PORT_GAME);
-        send(s1, msg, strlen(msg) + 1, 0);
+        send(s1, msg, strlen(msg)+1, 0);
 
-        // Vers joueur 2 : rôle + IP joueur 1
         sprintf(msg, "P2 %s %d", inet_ntoa(c1.sin_addr), PORT_GAME);
-        send(s2, msg, strlen(msg) + 1, 0);
+        send(s2, msg, strlen(msg)+1, 0);
 
         close(s1);
         close(s2);
 
         printf("Joueurs mis en relation, serveur libre\n");
     }
+
+    close(sock);
+    return 0;
 }
