@@ -1,6 +1,3 @@
-// client.c — PN V4 (Player 1 / Player 2)
-// Fonctionne avec server.c et game.c
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -18,7 +15,7 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    /* ================= CONNEXION AU SERVEUR ================= */
+    // connexion serveur
     int sockServ = socket(AF_INET, SOCK_STREAM, 0);
     if (sockServ < 0) {
         perror("socket");
@@ -38,6 +35,8 @@ int main(int argc, char *argv[]) {
     char buffer[BUF], role[3], ipPeer[16];
     int portPeer;
 
+    printf("Joueur 1 connecté : en attente du joueur 2...\n"); 
+
     recv(sockServ, buffer, BUF, 0);
     close(sockServ);
 
@@ -46,24 +45,29 @@ int main(int argc, char *argv[]) {
 
     int sockGame;
 
-    /* ================= PLAYER 1 ================= */
+    // Player 1
     if (isPlayer1) {
-
+          printf("Les deux joueurs sont connectés ! \n");
+          printf("Début de la partie ! \n\n");
+        
+        
         sockGame = socket(AF_INET, SOCK_STREAM, 0);
 
+        int opt = 1;
+        setsockopt(sockGame, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+        
         struct sockaddr_in addr;
         addr.sin_family = AF_INET;
         addr.sin_addr.s_addr = INADDR_ANY;
         addr.sin_port = htons(portPeer);
-
+        
+        
         if (bind(sockGame, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
             perror("bind");
             return 1;
         }
-
+        
         listen(sockGame, 1);
-        printf("Player 1 : en attente du joueur 2...\n");
-
         sockGame = accept(sockGame, NULL, NULL);
 
         char mot[BUF];
@@ -72,18 +76,28 @@ int main(int argc, char *argv[]) {
         mot[strcspn(mot, "\n")] = 0;
 
         send(sockGame, mot, strlen(mot) + 1, 0);
+        printf("Le mot comporte %d lettres\n", (int)strlen(mot));
 
         while (1) {
             char prop[BUF];
-            int n = recv(sockGame, prop, BUF, 0);
+            int n = recv(sockGame, prop, BUF - 1, 0);
             if (n <= 0) break;
 
+            prop[n] = '\0';
+
             if (!strcmp(prop, "GAGNE")) {
-                printf("🎉 Le joueur 2 a gagné !\n");
+                printf(
+                    "Malheureusement vous avez perdu... "
+                    "Pour la prochaine partie choisissez un mot plus difficile que : %s !\n",
+                    mot
+                );
+                send(sockGame, "STOP", 5, 0);
                 break;
             }
+
             if (!strcmp(prop, "PERDU")) {
-                printf("❌ Le joueur 2 a perdu.\n");
+                printf("Vous avez gagné, le joueur 2 n'a pas trouvé votre mot.\n");
+                send(sockGame, "STOP", 5, 0);
                 break;
             }
 
@@ -91,8 +105,11 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    /* ================= PLAYER 2 ================= */
+    // player 2
     else {
+        printf("Vous êtes connectés avec succès ! \n");
+        printf("Les deux joueurs sont connectés : la partie peut commencer ! \n\n");
+
         sleep(1);
 
         sockGame = socket(AF_INET, SOCK_STREAM, 0);
@@ -120,41 +137,64 @@ int main(int argc, char *argv[]) {
         int vies = VIES;
 
         while (vies > 0) {
-            printf("\nMot : %s | Vies : %d\n", affiche, vies);
-            printf("Lettre : ");
-
-            char c;
-            scanf(" %c", &c);
-
-            char prop[2] = {c, '\0'};
-            send(sockGame, prop, 2, 0);
-
-            int trouve = 0;
+            printf("\nMot : ");
             for (int i = 0; i < len; i++) {
-                if (mot[i] == c) {
-                    affiche[i] = c;
-                    trouve = 1;
-                }
+                printf("%c ", affiche[i]); 
             }
+            printf("| Vies : %d | Le mot comporte %d lettres \n", vies, len);
 
-            if (!trouve) {
-                vies--;
-                affichage(vies);
-            }
+            printf("\n Proposition (lettre ou mot) : ");
 
-            if (!strcmp(mot, affiche)) {
+            char prop[BUF];
+            scanf("%s", prop);
+            send(sockGame, prop, strlen(prop) + 1, 0);
+
+            if (!strcmp(prop, mot)) {
                 send(sockGame, "GAGNE", 6, 0);
-                printf("🎉 Gagné !\n");
+                printf("Félicitations, vous avez gagné la partie !\n");
+
+                char fin[BUF];
+                recv(sockGame, fin, BUF, 0); 
                 break;
+            }
+
+            if (strlen(prop) == 1) {
+                char c = prop[0];
+                int trouve = 0;
+
+                for (int i = 0; i < len; i++) {
+                    if (mot[i] == c) {
+                        affiche[i] = c;
+                        trouve = 1;
+                    }
+                }
+
+                if (!trouve) {
+                    vies--;
+                    affichage(vies);
+                }
+
+                if (!strcmp(mot, affiche)) {
+                    send(sockGame, "GAGNE", 6, 0);
+                    printf("Félicitations, vous avez gagné la partie !\n");
+
+                    char fin[BUF];
+                    recv(sockGame, fin, BUF, 0);
+                    break;
+                }
             }
         }
 
         if (vies == 0) {
             send(sockGame, "PERDU", 6, 0);
-            printf("❌ Perdu ! Mot : %s\n", mot);
+            printf("Vous avez perdu, le mot était : %s\n", mot);
+
+            char fin[BUF];
+            recv(sockGame, fin, BUF, 0);
         }
     }
 
+    shutdown(sockGame, SHUT_RDWR);
     close(sockGame);
     return 0;
 }

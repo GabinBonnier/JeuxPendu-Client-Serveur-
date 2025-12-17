@@ -37,7 +37,7 @@ int main() {
         socklen_t l1 = sizeof(c1), l2 = sizeof(c2);
 
         int s1 = accept(sock, (struct sockaddr*)&c1, &l1);
-        printf("Joueur 1 connecté (%s)\n", inet_ntoa(c1.sin_addr));
+        printf("Joueur 1 connecté (%s)\n", inet_ntoa(c1.sin_addr)); 
 
         int s2 = accept(sock, (struct sockaddr*)&c2, &l2);
         printf("Joueur 2 connecté (%s)\n", inet_ntoa(c2.sin_addr));
